@@ -84,21 +84,21 @@ func (graph *ConnectionGraph) Print() {
 
 }
 
-//A seen set is a list of which values have been seen in a space.
-type SeenSet [9]bool
+//A seen set is a bitfield list of which values have been seen in a space.
+type SeenSet uint16
 
 //Rule out one possibility.
-func (s *SeenSet) See(c byte) {
+func See(s SeenSet, c uint8) SeenSet {
 	if c == 0 {
-		return
+		return s
 	}
-	s[c-1] = true
+	return s | 1<<c
 }
 
 //How many possibilities are left in the set?
-func (s *SeenSet) Left() (count int) {
-	for _, v := range s {
-		if !v {
+func (s SeenSet) Left() (count int) {
+	for i := uint16(1); i < 10; i++ {
+		if s&(1<<i) == 0 {
 			count += 1
 		}
 	}
@@ -129,8 +129,8 @@ func (p *Puzzle) ReadInput(input []byte) error {
 //Solve(c) starts a goroutine that writes solutions to itself 
 //to the channel it return and closes channel when done.
 func (p *Puzzle) Solve() bool {
-	var minPossIndex, minPossCount int
-	var minSeen *SeenSet
+	var minPossIndex, minPossCount int = -1, 0
+	var minSeen SeenSet
 
 	for i := range p {
 		if p[i] == 0 {
@@ -139,7 +139,7 @@ func (p *Puzzle) Solve() bool {
 			//If it's not filled, go through all the connected squares
 			//and eliminate those as possibilities.
 			for _, connectionIndex := range Graph[i] {
-				s.See(p[connectionIndex])
+				s = See(s, p[connectionIndex])
 			}
 
 			possCount := s.Left()
@@ -153,27 +153,27 @@ func (p *Puzzle) Solve() bool {
 			case minPossCount > possCount:
 				fallthrough
 			//This is the first zero we've seen, so make it the minimum set.
-			case minSeen == nil:
+			case minPossIndex == -1:
 				minPossIndex = i
 				minPossCount = possCount
-				minSeen = &s
+				minSeen = s
 			}
 		}
 	}
 
 	//If there were no zeros, then this is a solution, so we're done.
-	if minSeen == nil {
+	if minPossIndex == -1 {
 		return true
 	}
 
 	//OK, let's try out each of the possibilities, and see if any of them
 	//solve the problem for us.
-	for pos := range minSeen {
-		if minSeen[pos] {
+	for n := uint8(1); n < 10; n++ {
+		if minSeen&(1<<n) != 0 {
 			continue
 		}
 
-		p[minPossIndex] = uint8(pos) + 1
+		p[minPossIndex] = n
 
 		if p.Solve() {
 			return true
