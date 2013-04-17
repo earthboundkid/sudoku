@@ -24,15 +24,14 @@ func main() {
 			break
 		}
 		err = p.ReadInput(line)
+
 		if err != nil {
 			fmt.Println(err.Error())
 			break
 		}
 		//Only gets first solution found.
-		c := p.Solve()
-		solution, _ := <-c
-		//solution.Print()
-		fmt.Println(&solution)
+		p.Solve()
+		fmt.Println(&p)
 
 	}
 
@@ -129,18 +128,7 @@ func (p *Puzzle) ReadInput(input []byte) error {
 
 //Solve(c) starts a goroutine that writes solutions to itself 
 //to the channel it return and closes channel when done.
-func (p *Puzzle) Solve() chan Puzzle {
-	c := make(chan Puzzle)
-	go solve(p, c)
-	return c
-}
-
-//solve does all the hard work for puzzle.Solve()
-func solve(p *Puzzle, c chan Puzzle) {
-	//We need to close the channel when we're done, so listeners know to 
-	//stop listening to us. Downside: can't reuse the channel.
-	defer close(c)
-
+func (p *Puzzle) Solve() bool {
 	var minPossIndex, minPossCount int
 	var minSeen *SeenSet
 
@@ -159,7 +147,7 @@ func solve(p *Puzzle, c chan Puzzle) {
 			switch {
 			//If it wasn't anything, something's wrong with the puzzle, give up.
 			case possCount == 0:
-				return
+				return false
 			//If it's the smallest possibilities left we've seen yet, 
 			//then save this set for later.
 			case minPossCount > possCount:
@@ -175,8 +163,7 @@ func solve(p *Puzzle, c chan Puzzle) {
 
 	//If there were no zeros, then this is a solution, so we're done.
 	if minSeen == nil {
-		c <- *p
-		return
+		return true
 	}
 
 	//OK, let's try out each of the possibilities, and see if any of them
@@ -185,12 +172,17 @@ func solve(p *Puzzle, c chan Puzzle) {
 		if minSeen[pos] {
 			continue
 		}
-		np := p.Modify(minPossIndex, pos)
 
-		for solution := range np.Solve() {
-			c <- solution
+		p[minPossIndex] = uint8(pos) + 1
+
+		if p.Solve() {
+			return true
 		}
 	}
+
+	//We must have barked up the wrong tree. Give up this slot, start over.
+	p[minPossIndex] = 0
+	return false
 }
 
 //Make a new puzzle with just one part different.
