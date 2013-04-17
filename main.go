@@ -8,9 +8,8 @@ import (
 	"fmt"
 )
 
-var (
-	graph = NewConnectionGraph()
-)
+//The ConnectionGraph is always the same, so it's initialized globally.
+var Graph = NewConnectionGraph()
 
 func main() {
 	p, _ := NewPuzzle("027800061000030008910005420500016030000970200070000096700000080006027000030480007")
@@ -29,16 +28,15 @@ func main() {
 	}
 }
 
-//Each square is connected to 20 other squares, not counting itself
+//Each square in a puzzle is connected to 20 other squares, not counting itself
 type ConnectionGraph [81][20]int
 
-func NewConnectionGraph() *ConnectionGraph {
-	r := new(ConnectionGraph)
-	for i := range r {
+func NewConnectionGraph() (graph ConnectionGraph) {
+	//We're going to go through each square in the graph (i)
+	//and every other square (s); if the pair (i and s) are connected,
+	//we add it to the graph's inner array then advance the inner array's index
+	for i := range graph {
 		var j int
-		//We're going to go through each other square,
-		//and if it's connected to the original square
-		//add it to the graph then advance the counter
 		for s := 0; s < 81; s++ {
 			//Don't add yourself
 			if i == s {
@@ -53,15 +51,16 @@ func NewConnectionGraph() *ConnectionGraph {
 				fallthrough
 			//Same box
 			case i/27 == s/27 && icol/3 == scol/3:
-				r[i][j] = s
+				graph[i][j] = s
 				j++
 			}
 		}
 	}
-	return r
+	return graph
 }
 
 //Pretty prints what's connected to what.
+//This was only needed for debugging the new connection graph alogrithm.
 func (graph *ConnectionGraph) Print() {
 	for i := range graph {
 		fmt.Printf("%2d: [", i)
@@ -73,7 +72,7 @@ func (graph *ConnectionGraph) Print() {
 
 }
 
-//A possibility set is a list of which values are still possible for a space
+//A possibility set is a list of which values are still possible for a space.
 type PossibilitySet [9]bool
 
 //Sets all fields true
@@ -85,6 +84,7 @@ func NewPossibilitySet() *PossibilitySet {
 	return r
 }
 
+//Rule out one possibility.
 func (p *PossibilitySet) Eliminate(c byte) {
 	if c == '0' {
 		return
@@ -92,6 +92,7 @@ func (p *PossibilitySet) Eliminate(c byte) {
 	p[c-'1'] = false
 }
 
+//How many possibilities are left in the set?
 func (p *PossibilitySet) Count() (count int) {
 	for _, v := range p {
 		if v {
@@ -104,6 +105,7 @@ func (p *PossibilitySet) Count() (count int) {
 //A puzzle is a 9x9 array
 type Puzzle [81]byte
 
+//Makes a new Puzzle or dies trying!
 func NewPuzzle(s string) (Puzzle, error) {
 	var p Puzzle
 
@@ -119,6 +121,7 @@ func NewPuzzle(s string) (Puzzle, error) {
 	return p, nil
 }
 
+//Solve(c) writes solutions to itself to the channel. Closes channel when done.
 func (p *Puzzle) Solve(c chan *Puzzle) {
 	//We need to close the channel when we're done, so listeners know to 
 	//stop listening to us. Downside: can't reuse the channel.
@@ -133,7 +136,7 @@ func (p *Puzzle) Solve(c chan *Puzzle) {
 
 			//If it's not filled, go through all the connected squares
 			//and eliminate those as possibilities.
-			for _, connectionIndex := range graph[i] {
+			for _, connectionIndex := range Graph[i] {
 				poss.Eliminate(p[connectionIndex])
 			}
 
@@ -143,10 +146,11 @@ func (p *Puzzle) Solve(c chan *Puzzle) {
 			//If it wasn't anything, something's wrong, give up.
 			case possCount == 0:
 				return
-			//Save this possibility for later
+			//If it's the smallest set we've seen yet, 
+			//then save this possibility for later.
 			case minPossCount > possCount:
 				fallthrough
-			//This is the first possibility we've found
+			//This is the first zero we've seen, so make it the minimum set.
 			case minPoss == nil:
 				minPossIndex = i
 				minPossCount = possCount
@@ -176,11 +180,13 @@ func (p *Puzzle) Solve(c chan *Puzzle) {
 	}
 }
 
+//Make a new puzzle with just one part different.
 func (p Puzzle) Modify(index int, to int) Puzzle {
 	p[index] = byte(to) + '1'
 	return p
 }
 
+//Pretty prints a Sudoku puzzle.
 func (p *Puzzle) Print() {
 	const (
 		fRow    = "%s|%s|%s\n"
@@ -196,6 +202,7 @@ func (p *Puzzle) Print() {
 	}
 }
 
+//Just dumps it as a single string. Use .Print() for pretty printing.
 func (p *Puzzle) String() string {
 	b := make([]byte, 0, len(p))
 	for _, c := range p {
