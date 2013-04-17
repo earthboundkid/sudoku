@@ -132,6 +132,7 @@ func (p *Puzzle) Solve() bool {
 	var minPossIndex, minPossCount int = -1, 0
 	var minSeen SeenSet
 
+loop:
 	for i := range p {
 		if p[i] == 0 {
 			var s SeenSet
@@ -143,11 +144,16 @@ func (p *Puzzle) Solve() bool {
 			}
 
 			possCount := s.Left()
-
 			switch {
 			//If it wasn't anything, something's wrong with the puzzle, give up.
 			case possCount == 0:
 				return false
+			//Doesn't get better.
+			case possCount == 1:
+				minPossIndex = i
+				minPossCount = possCount
+				minSeen = s
+				break loop
 			//If it's the smallest possibilities left we've seen yet, 
 			//then save this set for later.
 			case minPossCount > possCount:
