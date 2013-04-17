@@ -4,28 +4,40 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"os"
 )
 
 //The ConnectionGraph is always the same, so it's initialized globally.
 var Graph = NewConnectionGraph()
 
 func main() {
-	p, _ := NewPuzzle("027800061000030008910005420500016030000970200070000096700000080006027000030480007")
-	c := make(chan *Puzzle)
-	go p.Solve(c)
-	for solution := range c {
-		solution.Print()
-		fmt.Print("\n~~~ ~~~ ~~~\n\n")
+	var p Puzzle
+
+	r := bufio.NewReader(os.Stdin)
+
+	for {
+		line, err := r.ReadSlice('\n')
+		if err != nil {
+			break
+		}
+		err = p.ReadInput(line)
+		if err != nil {
+			fmt.Println(err.Error())
+			break
+		}
+		//Only gets first solution found.
+		c := p.Solve()
+		solution, _ := <-c
+		//solution.Print()
+		fmt.Println(&solution)
+
 	}
-	p, _ = NewPuzzle("000000000000000000000000000000000000000000000000000000000000000000000000000000000")
-	c = make(chan *Puzzle)
-	go p.Solve(c)
-	for solution := range c {
-		solution.Print()
-		fmt.Print("\n~~~ ~~~ ~~~\n\n")
-	}
+
+	//	p, _ := NewPuzzle("027800061000030008910005420500016030000970200070000096700000080006027000030480007")
+	//	p, _ = NewPuzzle("000000000000003085001020000000507000004000100090000000500000073002010000000040009")
 }
 
 //Each square in a puzzle is connected to 20 other squares, not counting itself
@@ -61,6 +73,7 @@ func NewConnectionGraph() (graph ConnectionGraph) {
 
 //Pretty prints what's connected to what.
 //This was only needed for debugging the new connection graph alogrithm.
+//You shouldn't need it unless you improve that.
 func (graph *ConnectionGraph) Print() {
 	for i := range graph {
 		fmt.Printf("%2d: [", i)
@@ -72,30 +85,21 @@ func (graph *ConnectionGraph) Print() {
 
 }
 
-//A possibility set is a list of which values are still possible for a space.
-type PossibilitySet [9]bool
-
-//Sets all fields true
-func NewPossibilitySet() *PossibilitySet {
-	r := new(PossibilitySet)
-	for i := range r {
-		r[i] = true
-	}
-	return r
-}
+//A seen set is a list of which values have been seen in a space.
+type SeenSet [9]bool
 
 //Rule out one possibility.
-func (p *PossibilitySet) Eliminate(c byte) {
-	if c == '0' {
+func (s *SeenSet) See(c byte) {
+	if c == 0 {
 		return
 	}
-	p[c-'1'] = false
+	s[c-1] = true
 }
 
 //How many possibilities are left in the set?
-func (p *PossibilitySet) Count() (count int) {
-	for _, v := range p {
-		if v {
+func (s *SeenSet) Left() (count int) {
+	for _, v := range s {
+		if !v {
 			count += 1
 		}
 	}
@@ -103,78 +107,87 @@ func (p *PossibilitySet) Count() (count int) {
 }
 
 //A puzzle is a 9x9 array
-type Puzzle [81]byte
+type Puzzle [81]uint8
 
 //Makes a new Puzzle or dies trying!
-func NewPuzzle(s string) (Puzzle, error) {
-	var p Puzzle
-
-	if len(s) != 81 {
-		return p, errors.New("Input is the wrong size.")
+func (p *Puzzle) ReadInput(input []byte) error {
+	if len(input) < 81 {
+		return errors.New("Input is too small.")
 	}
-	for i := range s {
-		if '0' > s[i] || s[i] > '9' {
-			return p, errors.New("Input should only have numbers 0-9.")
+	for i := range p {
+		if input[i] == '.' {
+			p[i] = 0
+			continue
 		}
-		p[i] = s[i]
+		if '0' > input[i] || input[i] > '9' {
+			return errors.New("Input should only have numbers 0-9.")
+		}
+		p[i] = input[i] - '0'
 	}
-	return p, nil
+	return nil
 }
 
-//Solve(c) writes solutions to itself to the channel. Closes channel when done.
-func (p *Puzzle) Solve(c chan *Puzzle) {
+//Solve(c) starts a goroutine that writes solutions to itself 
+//to the channel it return and closes channel when done.
+func (p *Puzzle) Solve() chan Puzzle {
+	c := make(chan Puzzle)
+	go solve(p, c)
+	return c
+}
+
+//solve does all the hard work for puzzle.Solve()
+func solve(p *Puzzle, c chan Puzzle) {
 	//We need to close the channel when we're done, so listeners know to 
 	//stop listening to us. Downside: can't reuse the channel.
 	defer close(c)
 
 	var minPossIndex, minPossCount int
-	var minPoss *PossibilitySet
+	var minSeen *SeenSet
 
 	for i := range p {
-		if p[i] == '0' {
-			poss := NewPossibilitySet()
+		if p[i] == 0 {
+			var s SeenSet
 
 			//If it's not filled, go through all the connected squares
 			//and eliminate those as possibilities.
 			for _, connectionIndex := range Graph[i] {
-				poss.Eliminate(p[connectionIndex])
+				s.See(p[connectionIndex])
 			}
 
-			possCount := poss.Count()
+			possCount := s.Left()
 
 			switch {
-			//If it wasn't anything, something's wrong, give up.
+			//If it wasn't anything, something's wrong with the puzzle, give up.
 			case possCount == 0:
 				return
-			//If it's the smallest set we've seen yet, 
-			//then save this possibility for later.
+			//If it's the smallest possibilities left we've seen yet, 
+			//then save this set for later.
 			case minPossCount > possCount:
 				fallthrough
 			//This is the first zero we've seen, so make it the minimum set.
-			case minPoss == nil:
+			case minSeen == nil:
 				minPossIndex = i
 				minPossCount = possCount
-				minPoss = poss
+				minSeen = &s
 			}
 		}
 	}
 
 	//If there were no zeros, then this is a solution, so we're done.
-	if minPoss == nil {
-		c <- p
+	if minSeen == nil {
+		c <- *p
 		return
 	}
 
 	//OK, let's try out each of the possibilities, and see if any of them
 	//solve the problem for us.
-	for pos := range minPoss {
-		if minPoss[pos] == false {
+	for pos := range minSeen {
+		if minSeen[pos] {
 			continue
 		}
 		np := p.Modify(minPossIndex, pos)
-		nc := make(chan *Puzzle)
-		go np.Solve(nc)
-		for solution := range nc {
+
+		for solution := range np.Solve() {
 			c <- solution
 		}
 	}
@@ -182,7 +195,7 @@ func (p *Puzzle) Solve(c chan *Puzzle) {
 
 //Make a new puzzle with just one part different.
 func (p Puzzle) Modify(index int, to int) Puzzle {
-	p[index] = byte(to) + '1'
+	p[index] = byte(to) + 1
 	return p
 }
 
@@ -192,9 +205,10 @@ func (p *Puzzle) Print() {
 		fRow    = "%s|%s|%s\n"
 		divider = "---+---+---\n"
 	)
+	s := p.String()
 	for i := 0; i < 81; i += 27 {
 		for j := 0; j < 9; j += 3 {
-			fmt.Printf(fRow, p[i+j+0:i+j+3], p[i+j+3:i+j+6], p[i+j+6:i+j+9])
+			fmt.Printf(fRow, s[i+j+0:i+j+3], s[i+j+3:i+j+6], s[i+j+6:i+j+9])
 		}
 		if i < 54 {
 			fmt.Print(divider)
@@ -204,9 +218,9 @@ func (p *Puzzle) Print() {
 
 //Just dumps it as a single string. Use .Print() for pretty printing.
 func (p *Puzzle) String() string {
-	b := make([]byte, 0, len(p))
-	for _, c := range p {
-		b = append(b, c)
+	b := make([]byte, 81)
+	for i := range b {
+		b[i] = p[i] + '0'
 	}
 	return string(b)
 }
