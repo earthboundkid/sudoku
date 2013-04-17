@@ -88,11 +88,12 @@ func (graph *ConnectionGraph) Print() {
 type Digit uint16
 
 //How many possibilities are left in the set?
-func Unflagged(d Digit) (count int) {
+func Unflagged(d Digit) (count Digit) {
+	d = ^d //Flip digits.
 	for i := uint16(1); i < 10; i++ {
-		if d&(1<<i) == 0 {
-			count += 1
-		}
+		//If the digit wasn't flagged before, it's 1 now.
+		//So, scoot it to the 0th place, & out the other bits, and add that.
+		count += 1 & (d >> i)
 	}
 	return count
 }
@@ -121,8 +122,8 @@ func (p *Puzzle) ReadInput(input []byte) error {
 //Solve(c) starts a goroutine that writes solutions to itself 
 //to the channel it return and closes channel when done.
 func (p *Puzzle) Solve() bool {
-	var minPossIndex, minPossCount int = -1, 0
-	var minPossFlags Digit
+	var minPossIndex int = -1
+	var minPossCount, minPossFlags Digit
 
 loop:
 	for i := range p {
