@@ -122,10 +122,12 @@ func (p *Puzzle) ReadInput(input []byte) error {
 //Solve(c) starts a goroutine that writes solutions to itself 
 //to the channel it return and closes channel when done.
 func (p *Puzzle) Solve() bool {
-	var minPossIndex int = -1
-	var minPossCount, minPossFlags Digit
+	var (
+		minPossIndex int   = -1
+		minPossCount Digit = 0xFFFF
+		minPossFlags Digit = 0
+	)
 
-loop:
 	for i := range p {
 		if p[i] == 0 {
 			var d Digit //Flags digits seen.
@@ -135,33 +137,26 @@ loop:
 			for _, connectionIndex := range Graph[i] {
 				//Is there anyway to speed this up?
 				d |= p[connectionIndex]
-				/* No help with performance: 
-				//Is d full?
-					if d == 0x3fe {
-						break
-					}*/
+
+			}
+			
+			//We eliminated all possibilities. This must be a bad solution try.
+			if d == 0x3fe {
+				return false
 			}
 
 			possCount := Unflagged(d)
-			switch {
-			//If it wasn't anything, something's wrong with the puzzle, give up.
-			case possCount == 0:
-				return false
-			//Doesn't get more minimaler.
-			case possCount == 1:
-				minPossIndex = i
-				minPossCount = possCount
-				minPossFlags = d
-				break loop
+			if minPossCount <= possCount {
+				continue
+			}
 			//If it's the smallest possibilities left we've seen yet, 
 			//then save this set for later.
-			case minPossCount > possCount:
-				fallthrough
-			//This is the first zero we've seen, so make it the minimum set.
-			case minPossIndex == -1:
-				minPossIndex = i
-				minPossFlags = d
-				minPossCount = possCount
+			minPossIndex = i
+			minPossCount = possCount
+			minPossFlags = d
+
+			if possCount == 1 {
+				break
 			}
 		}
 	}
