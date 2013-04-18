@@ -5,10 +5,16 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"os"
 )
+
+func ordie(err error) {
+	if err != nil {
+		fmt.Printf("Failure: %s\n", err)
+		os.Exit(-1)
+	}
+}
 
 func main() {
 	var p Puzzle
@@ -20,14 +26,11 @@ func main() {
 		if err != nil {
 			break
 		}
+
 		err = p.ReadInput(line)
-
-		if err != nil {
-			fmt.Println(err.Error())
-			break
-		}
-
-		p.Solve()
+		ordie(err)
+		err = p.Solve()
+		ordie(err)
 		fmt.Println(&p)
 	}
 }
@@ -45,15 +48,15 @@ type Puzzle [81]Digit
 
 func (p *Puzzle) ReadInput(input []byte) error {
 	if len(input) < 81 {
-		return errors.New("Input is too small.")
+		return fmt.Errorf("Input is too small.")
 	}
 	for i := range p {
-		if input[i] == '.' {
+		if input[i] == '.' || input[i] == '0' {
 			p[i] = 0
 			continue
 		}
 		if '0' > input[i] || input[i] > '9' {
-			return errors.New("Input should only have numbers 0-9.")
+			return fmt.Errorf("Input should only have numbers 0-9.")
 		}
 		p[i] = 1 << uint16(input[i]-'0')
 	}
@@ -62,7 +65,7 @@ func (p *Puzzle) ReadInput(input []byte) error {
 
 func (p *Puzzle) Solve() error {
 	if !p.solved() {
-		return errors.New("Couldn't solve the puzzle!")
+		return fmt.Errorf("Couldn't solve the puzzle!")
 	}
 	return nil
 }
