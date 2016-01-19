@@ -13,7 +13,7 @@ import (
 
 func ordie(err error) {
 	if err != nil {
-		fmt.Printf("Failure: %s\n", err)
+		fmt.Printf("Failure: %v\n", err)
 		os.Exit(-1)
 	}
 }
@@ -21,18 +21,16 @@ func ordie(err error) {
 func main() {
 	var p sudoku.Puzzle
 
-	r := bufio.NewReader(os.Stdin)
+	s := bufio.NewScanner(os.Stdin)
 
-	for {
-		line, err := r.ReadSlice('\n')
-		if err != nil {
-			break
-		}
-
-		err = p.ReadInput(line)
+	for s.Scan() {
+		line := s.Bytes()
+		err := p.ReadInput(line)
 		ordie(err)
 		err = p.Solve()
 		ordie(err)
 		fmt.Println(&p)
 	}
+
+	ordie(s.Err())
 }
