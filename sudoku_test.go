@@ -75,3 +75,35 @@ func TestSolver(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkAllValid(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		for _, test := range testcases {
+			if !test.readable || !test.solvable {
+				continue
+			}
+
+			var p sudoku.Puzzle
+			p.ReadInput([]byte(test.in))
+			p.Solve()
+		}
+	}
+}
+
+func BenchmarkEmpty(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		test := testcases[1]
+		var p sudoku.Puzzle
+		p.ReadInput([]byte(test.in))
+		p.Solve()
+	}
+}
+
+func BenchmarkWorst(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		test := testcases[2]
+		var p sudoku.Puzzle
+		p.ReadInput([]byte(test.in))
+		p.Solve()
+	}
+}
