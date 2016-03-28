@@ -154,7 +154,8 @@ func (p *Puzzle) String() string {
 loop:
 	for i, v := range p {
 		if v == 0 {
-			b[i] = 0
+			b[i] = '.'
+			continue
 		}
 		for j := uint(0); j < 10; j++ {
 			if v == 1<<j {
