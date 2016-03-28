@@ -1,7 +1,10 @@
 // Package sudoku provides types for solving and displaying sudoku puzzles
 package sudoku
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+)
 
 // Digit is a bitflag for representing sudoku digits. 0x0 is unset,
 // 0x2 is a one, 0x4 is a two, etc.
@@ -165,18 +168,20 @@ loop:
 }
 
 // Print pretty prints a puzzle with dividers etc.
-func (p *Puzzle) Print() {
+func (p *Puzzle) Print() string {
 	const (
 		fRow    = "%s|%s|%s\n"
 		divider = "---+---+---\n"
 	)
+
+	var buf bytes.Buffer
 	s := p.String()
-	for i := 0; i < 81; i += 27 {
-		for j := 0; j < 9; j += 3 {
-			fmt.Printf(fRow, s[i+j+0:i+j+3], s[i+j+3:i+j+6], s[i+j+6:i+j+9])
-		}
-		if i < 54 {
-			fmt.Print(divider)
+
+	for i := 0; i < 81; i += 9 {
+		fmt.Fprintf(&buf, fRow, s[i+0:i+3], s[i+3:i+6], s[i+6:i+9])
+		if i%27 == 18 && i < 54 {
+			fmt.Fprint(&buf, divider)
 		}
 	}
+	return buf.String()
 }
