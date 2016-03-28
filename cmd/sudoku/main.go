@@ -28,8 +28,11 @@ func main() {
 		err := p.ReadInput(line)
 		ordie(err)
 		err = p.Solve()
-		ordie(err)
-		fmt.Println(&p)
+		if err == nil {
+			fmt.Println(&p)
+		} else {
+			fmt.Println(err)
+		}
 	}
 
 	ordie(s.Err())
