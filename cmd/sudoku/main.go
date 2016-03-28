@@ -5,6 +5,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"os"
 
@@ -21,6 +22,19 @@ func ordie(err error) {
 func main() {
 	var p sudoku.Puzzle
 
+	// Handle command line arguments
+	pp := flag.Bool("pretty-print", false, "Pretty print solutions")
+	flag.Parse()
+
+	print := func() {
+		fmt.Println(&p)
+	}
+	if *pp {
+		print = func() {
+			fmt.Println(p.Print())
+		}
+	}
+
 	s := bufio.NewScanner(os.Stdin)
 
 	for s.Scan() {
@@ -29,7 +43,7 @@ func main() {
 		ordie(err)
 		err = p.Solve()
 		if err == nil {
-			fmt.Println(&p)
+			print()
 		} else {
 			fmt.Println(err)
 		}
