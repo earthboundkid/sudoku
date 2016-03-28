@@ -3,11 +3,36 @@ package sudoku
 
 import "fmt"
 
+// Digit is a bitflag for representing sudoku digits. 0x0 is unset,
+// 0x2 is a one, 0x4 is a two, etc.
 type Digit uint16
 
-//A puzzle is a 9x9 array of bitflag digits.
+// Constraints counts the number of flags set on a digit.
+func (d Digit) Constraints() (c int) {
+	// Fast path for common cases
+	if d == 0 {
+		return 0
+	}
+
+	if d == 0x3fe {
+		return 9
+	}
+
+	for i := Digit(1); i < 10; i++ {
+		// If the constraint was added before, it's 1 now.
+		// So, scoot it to the 0th place, & out the other bits, and add that.
+		c += int(1 & (d >> i))
+	}
+
+	return c
+}
+
+// Puzzle is a 9x9 array of bitflag digits.
 type Puzzle [81]Digit
 
+// ReadInput sets the puzzle based on byte slice of input.
+// Input is expected to be 81 bytes long with 0 or . for empty spaces.
+// Input beyond 81 bytes is ignored.
 func (p *Puzzle) ReadInput(input []byte) error {
 	if len(input) < 81 {
 		return fmt.Errorf("Input is too small.")
@@ -20,77 +45,93 @@ func (p *Puzzle) ReadInput(input []byte) error {
 		if '0' > input[i] || input[i] > '9' {
 			return fmt.Errorf("Input should only have numbers 0-9.")
 		}
-		p[i] = 1 << uint16(input[i]-'0')
+		p[i] = 1 << Digit(input[i]-'0')
 	}
 	return nil
 }
 
+// IsValid checks for basic validity (no repeated numbers)
+func (p *Puzzle) IsValid() bool {
+	for i := range p {
+		// Fast path common case
+		if p[i] == 0 {
+			continue
+		}
+
+		for _, j := range Graph[i] {
+			if p[i] == p[j] {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// Solve will mutate the puzzle into a solved state or return an error
+// explaining why this was impossible.
 func (p *Puzzle) Solve() error {
+	if !p.IsValid() {
+		return fmt.Errorf("puzzle is not valid")
+	}
 	if !p.solved() {
-		return fmt.Errorf("Couldn't solve the puzzle!")
+		return fmt.Errorf("puzzle is unsolvable")
 	}
 	return nil
 }
 
 func (p *Puzzle) solved() bool {
 	var (
-		minCount Digit = 0xFFFF
-		minFlags Digit
-		minIndex int
+		maxConstraints, minIndex = -1, -1
+		seen, possibleSolutions  Digit
 	)
 
 	for i := range p {
-		if p[i] == 0 {
-			var f Digit //Flags digits seen.
+		// Already constrained...
+		if p[i] != 0 {
+			continue
+		}
+		// Reset flags
+		seen = 0
 
-			//If it's not filled, go through all the connected squares
-			//and eliminate those as possibilities.
-			for _, connectionIndex := range Graph[i] {
-				//Is there anyway to speed this up?
-				f |= p[connectionIndex]
-			}
+		// Go through all the connected squares and eliminate those as possibilities.
+		for _, connectionIndex := range Graph[i] {
+			seen |= p[connectionIndex]
+		}
 
-			//We eliminated all possibilities. This must be a bad solution try.
-			if f == 0x03FE {
-				return false
-			}
+		//Count digits seen
+		c := seen.Constraints()
 
-			//Count digits seen
-			var c Digit
-			f = ^f //Flip digits.
-			for i := uint16(1); i < 10; i++ {
-				//If the digit wasn't flagged before, it's 1 now.
-				//So, scoot it to the 0th place, & out the other bits, and add that.
-				c += 1 & (f >> i)
-			}
+		// We eliminated all possibilities. This must be a bad solution try.
+		if c == 9 {
+			return false
+		}
 
-			//Doesn't have fewer constraints than another we saw, try another
-			if c >= minCount {
-				continue
-			}
+		// Doesn't have more constraints than another we saw, try another
+		if c <= maxConstraints {
+			continue
+		}
 
-			//Fewest possibile values to explore, so save it for later
-			minCount = c
-			minFlags = f
-			minIndex = i
+		//Fewest possibile values to explore, so save it for later
+		maxConstraints = c
+		possibleSolutions = ^seen
+		minIndex = i
 
-			//If it only had one, this is as good as it gets. Move on.
-			if c == 1 {
-				break
-			}
+		//If it only had one possibility left, this is as good as it gets. Move on.
+		if c == 8 {
+			break
 		}
 	}
 
 	//If there were no zeros, then this is a solution, so we're done.
-	if minCount == 0xFFFF {
+	if maxConstraints == -1 {
 		return true
 	}
 
 	//OK, let's try out each of the possibilities, and see if any of them
 	//solve the problem for us.
 	for n := Digit(1); n < 10; n++ {
-		if minFlags&(1<<n) != 0 {
-			p[minIndex] = 1 << n
+		if v := Digit(1 << n); possibleSolutions&v != 0 {
+			p[minIndex] = v
 
 			if p.solved() {
 				return true
@@ -104,41 +145,26 @@ func (p *Puzzle) solved() bool {
 	return false
 }
 
-//Just dumps it as a single string. Use .Print() for pretty printing.
+// String dumps a puzzle as a single line. Use .Print() for pretty printing.
 func (p *Puzzle) String() string {
 	b := make([]byte, 81)
+loop:
 	for i, v := range p {
-		switch v {
-		case 0:
-			b[i] = '0'
-		case 1 << 0:
-			b[i] = '0'
-		case 1 << 1:
-			b[i] = '1'
-		case 1 << 2:
-			b[i] = '2'
-		case 1 << 3:
-			b[i] = '3'
-		case 1 << 4:
-			b[i] = '4'
-		case 1 << 5:
-			b[i] = '5'
-		case 1 << 6:
-			b[i] = '6'
-		case 1 << 7:
-			b[i] = '7'
-		case 1 << 8:
-			b[i] = '8'
-		case 1 << 9:
-			b[i] = '9'
-		default:
-			b[i] = '?'
+		if v == 0 {
+			b[i] = 0
 		}
+		for j := uint(0); j < 10; j++ {
+			if v == 1<<j {
+				b[i] = '0' + byte(j)
+				continue loop
+			}
+		}
+		b[i] = '?'
 	}
 	return string(b)
 }
 
-//Pretty prints a Sudoku puzzle.
+// Print pretty prints a puzzle with dividers etc.
 func (p *Puzzle) Print() {
 	const (
 		fRow    = "%s|%s|%s\n"
