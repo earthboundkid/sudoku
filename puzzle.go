@@ -30,6 +30,23 @@ func (d Digit) Constraints() (c int) {
 	return c
 }
 
+// Byte is the basis for (Digit).String().
+func (d Digit) Byte() byte {
+	if d == 0 {
+		return '.'
+	}
+	for j := uint(0); j < 10; j++ {
+		if d == 1<<j {
+			return '0' + byte(j)
+		}
+	}
+	return '?'
+}
+
+func (d Digit) String() string {
+	return string(d.Byte())
+}
+
 // Puzzle is a 9x9 array of bitflag digits.
 type Puzzle [81]Digit
 
@@ -172,19 +189,8 @@ func (p *Puzzle) solved() bool {
 // String dumps a puzzle as a single line. Use .Print() for pretty printing.
 func (p *Puzzle) String() string {
 	b := make([]byte, 81)
-loop:
 	for i, v := range p {
-		if v == 0 {
-			b[i] = '.'
-			continue
-		}
-		for j := uint(0); j < 10; j++ {
-			if v == 1<<j {
-				b[i] = '0' + byte(j)
-				continue loop
-			}
-		}
-		b[i] = '?'
+		b[i] = v.Byte()
 	}
 	return string(b)
 }
