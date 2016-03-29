@@ -83,9 +83,29 @@ func (p *Puzzle) Solve() error {
 }
 
 func (p *Puzzle) solved() bool {
+	/*
+		Basic algorithm:
+
+		Go through all the squares of puzzle.
+
+		- If all the squares have values, yay, we're done.
+		- If some of the squares don't have values, try to find the square
+		that is the most constrained: that is, a highly constrained square
+		can only have one or two possible values since the squares it is
+		connected to already have values. Try giving it one of its possible
+		values and re-running the algorithm recursively.
+			- If that worked, yay, we're done.
+			- If that didn't work, try another possible value.
+			- If we exhausted all the possible values, this must be an
+			invalid solution attempt. Reset this square to zero and return
+			false to let our caller know.
+
+		Open question: Is there some way to reuse constraints from one call
+		to another?
+	*/
 	var (
-		maxConstraints, minIndex = -1, -1
-		seen, possibleSolutions  Digit
+		maxConstraints, maxConstrainedIndex = -1, -1
+		seen, possibleSolutions             Digit
 	)
 
 	for i := range p {
@@ -116,8 +136,9 @@ func (p *Puzzle) solved() bool {
 
 		//Fewest possibile values to explore, so save it for later
 		maxConstraints = c
+		// Possible solutions are the opposite of our constraints
 		possibleSolutions = ^seen
-		minIndex = i
+		maxConstrainedIndex = i
 
 		//If it only had one possibility left, this is as good as it gets. Move on.
 		if c == 8 {
@@ -134,7 +155,7 @@ func (p *Puzzle) solved() bool {
 	//solve the problem for us.
 	for n := Digit(1); n < 10; n++ {
 		if v := Digit(1 << n); possibleSolutions&v != 0 {
-			p[minIndex] = v
+			p[maxConstrainedIndex] = v
 
 			if p.solved() {
 				return true
@@ -144,7 +165,7 @@ func (p *Puzzle) solved() bool {
 	}
 
 	//We must have barked up the wrong tree. Give up this slot, start over.
-	p[minIndex] = 0
+	p[maxConstrainedIndex] = 0
 	return false
 }
 
