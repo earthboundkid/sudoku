@@ -91,19 +91,23 @@ func BenchmarkAllValid(b *testing.B) {
 }
 
 func BenchmarkEmpty(b *testing.B) {
+	test := testcases[1]
+	var p sudoku.Puzzle
+	p.ReadInput([]byte(test.in))
+
 	for i := 0; i < b.N; i++ {
-		test := testcases[1]
-		var p sudoku.Puzzle
-		p.ReadInput([]byte(test.in))
-		p.Solve()
+		q := p
+		q.Solve()
 	}
 }
 
 func BenchmarkWorst(b *testing.B) {
+	test := testcases[2]
+	var p sudoku.Puzzle
+	p.ReadInput([]byte(test.in))
+
 	for i := 0; i < b.N; i++ {
-		test := testcases[2]
-		var p sudoku.Puzzle
-		p.ReadInput([]byte(test.in))
-		p.Solve()
+		q := p
+		q.Solve()
 	}
 }
