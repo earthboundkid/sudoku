@@ -12,22 +12,7 @@ type Digit uint16
 
 // Constraints counts the number of flags set on a digit.
 func (d Digit) Constraints() (c int) {
-	// Fast path for common cases
-	if d == 0 {
-		return 0
-	}
-
-	if d == 0x3fe {
-		return 9
-	}
-
-	for i := Digit(1); i < 10; i++ {
-		// If the constraint was added before, it's 1 now.
-		// So, scoot it to the 0th place, & out the other bits, and add that.
-		c += int(1 & (d >> i))
-	}
-
-	return c
+	return hammDist[d]
 }
 
 // Byte is the basis for (Digit).String().
