@@ -4,16 +4,12 @@ package sudoku
 import (
 	"bytes"
 	"fmt"
+	"math/bits"
 )
 
 // Digit is a bitflag for representing sudoku digits. 0x0 is unset,
 // 0x2 is a one, 0x4 is a two, etc.
 type Digit uint16
-
-// Constraints counts the number of flags set on a digit.
-func (d Digit) Constraints() (c int) {
-	return hammDist[d]
-}
 
 // Byte is the basis for (Digit).String().
 func (d Digit) Byte() byte {
@@ -124,7 +120,7 @@ func (p *Puzzle) solved() bool {
 		}
 
 		//Count digits seen
-		c := seen.Constraints()
+		c := bits.OnesCount16(uint16(seen))
 
 		// We eliminated all possibilities. This must be a bad solution try.
 		if c == 9 {
