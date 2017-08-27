@@ -40,7 +40,7 @@ type Puzzle [81]Digit
 // Input beyond 81 bytes is ignored.
 func (p *Puzzle) ReadInput(input []byte) error {
 	if len(input) < 81 {
-		return fmt.Errorf("Input is too small.")
+		return fmt.Errorf("input is too small")
 	}
 	for i := range p {
 		if input[i] == '.' || input[i] == '0' {
@@ -48,7 +48,7 @@ func (p *Puzzle) ReadInput(input []byte) error {
 			continue
 		}
 		if '0' > input[i] || input[i] > '9' {
-			return fmt.Errorf("Input should only have numbers 0-9.")
+			return fmt.Errorf("input should only have numbers 0-9")
 		}
 		p[i] = 1 << Digit(input[i]-'0')
 	}
