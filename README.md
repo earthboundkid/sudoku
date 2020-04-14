@@ -3,6 +3,6 @@ sudoku
 
 A simple sudoku solver in Go.
 
-This one is a translation from Python.
+This was originally a translation of [Jake VanderPlas's Python][p], but it has since been thoroughly rewritten.
 
-Original is http://jakevdp.github.io/blog/2013/04/15/code-golf-in-python-sudoku/
+[p]: http://jakevdp.github.io/blog/2013/04/15/code-golf-in-python-sudoku/
